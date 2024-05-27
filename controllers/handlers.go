@@ -6,60 +6,120 @@ import (
 	"log"
 	"net/http"
 
+	//"strings"
 	"github.com/sergiordob/IFPB-Projeto-2024/database"
 	"github.com/sergiordob/IFPB-Projeto-2024/database/models"
 	"go.mongodb.org/mongo-driver/bson"
 )
 
-func EndPoint01() http.HandlerFunc {
-    return func(writer http.ResponseWriter, request *http.Request) {
-        // Seleciona o banco de dados e a coleção
-        databaseHandler := database.DatabaseConnection.Database("farma")
-        collection := databaseHandler.Collection("farma_full_collection")
+func GetDrugstoresByState() http.HandlerFunc {
+	return func(writer http.ResponseWriter, request *http.Request) {
+		// Seleciona o banco de dados e a coleção
+		databaseHandler := database.DatabaseConnection.Database("farma")
+		collection := databaseHandler.Collection("farma_full_collection")
 
-        // Filtra as farmacias por estado (UF) - Configurado para PB
-        filter := bson.M{"endereco.estado": "PB"}
+		uf := request.PathValue("uf")
 
-        // Encontra os documentos correspondentes
-        cursor, err := collection.Find(context.TODO(), filter)
-        if err != nil {
-            panic(err)
-        }
-        defer cursor.Close(context.TODO())
+		// Filtra as farmacias por estado (UF) - Configurado para PB
+		filter := bson.M{"endereco.estado": uf}
 
-        // Cria um slice de structs para armazenar as farmacias
-        var drugstores []models.Drugstore
+		// Encontra os documentos correspondentes
+		cursor, err := collection.Find(context.TODO(), filter)
+		if err != nil {
+			panic(err)
+		}
+		defer cursor.Close(context.TODO())
 
-        // Itera sobre os resultados
-        for cursor.Next(context.TODO()) {
-            var drugstore models.Drugstore
+		// Cria um slice de structs para armazenar as farmacias
+		var drugstores []models.Drugstore
 
-            // Decodifica o documento
-            if err := cursor.Decode(&drugstore); err != nil {
-                panic(err)
-            }
+		// Itera sobre os resultados
+		for cursor.Next(context.TODO()) {
+			var drugstore models.Drugstore
 
-            // Adiciona o documento à lista
-            drugstores = append(drugstores, drugstore)
-        }
+			// Decodifica o documento
+			if err := cursor.Decode(&drugstore); err != nil {
+				panic(err)
+			}
 
-        // Verifica se o cursor possui erro
-        if err := cursor.Err(); err != nil {
-            panic(err)
-        }
+			// Adiciona o documento à lista
+			drugstores = append(drugstores, drugstore)
+		}
 
-        // Exibe as informações das farmácias
-        if len(drugstores) > 0 {
-            for _, f := range drugstores {
-                fmt.Fprintf(writer, "Nome: %s\nEndereço: %s, %s - %s\n\n", f.Nome, f.Endereco.Rua, f.Endereco.Numero, f.Endereco.Municipio)
-            }
-        } else {
-            fmt.Fprintln(writer, "Nenhuma farmácia encontrada.")
-        }
-    }
+		// Verifica se o cursor possui erro
+		if err := cursor.Err(); err != nil {
+			panic(err)
+		}
+
+		// Exibe as informações das farmácias
+		if len(drugstores) > 0 {
+			for _, f := range drugstores {
+				fmt.Fprintf(writer, "Nome: %s\nEndereço: %s, %s - %s\n\n", f.Nome, f.Endereco.Rua, f.Endereco.Numero, f.Endereco.Municipio)
+			}
+		} else {
+			fmt.Fprintln(writer, "Nenhuma farmácia encontrada.")
+		}
+	}
 }
 
-func EndPoint02() http.HandlerFunc {
+// http://localhost:8080/api/AC/RIO%20BRANCO
+func GetDrugstoresByCityAndState() http.HandlerFunc {
+	return func(writer http.ResponseWriter, request *http.Request) {
+		// Conexão com o banco de dados
+		databaseHandler := database.DatabaseConnection.Database("farma")
+		collection := databaseHandler.Collection("farma_full_collection")
+
+		// Recuperar valores da URL
+		uf := request.PathValue("uf")
+		city := request.PathValue("cidade")
+		//cityWithoutSpaces := strings.TrimSpace(city) // Remover espaços em branco
+
+		// Criar filtro de busca
+		filter := bson.M{
+			"endereco.estado":    uf,
+			"endereco.municipio": city,
+		}
+
+		// Buscar documentos correspondentes
+		cursor, err := collection.Find(context.TODO(), filter)
+		if err != nil {
+			http.Error(writer, "Erro ao buscar farmácias", http.StatusInternalServerError)
+			return
+		}
+		defer cursor.Close(context.TODO())
+
+		// Criar slice para armazenar as farmácias
+		var drugstores []models.Drugstore
+
+		// Itera sobre os resultados
+		for cursor.Next(context.TODO()) {
+			var drugstore models.Drugstore
+			if err := cursor.Decode(&drugstore); err != nil {
+				http.Error(writer, "Erro ao decodificar documento", http.StatusInternalServerError)
+				return
+			}
+			drugstores = append(drugstores, drugstore)
+		}
+
+		// Verificar se o cursor possui erro
+		if err := cursor.Err(); err != nil {
+			http.Error(writer, "Erro ao iterar sobre resultados", http.StatusInternalServerError)
+			return
+		}
+
+		// Exibir informações das farmácias
+		if len(drugstores) > 0 {
+			for _, f := range drugstores {
+				// Remover formatação do campo Telefone
+				fmt.Fprintf(writer, "Nome: %s\nEndereço: %s, %s - %s\n\n", f.Nome, f.Endereco.Rua, f.Endereco.Numero, f.Endereco.Municipio)
+			}
+		} else {
+			fmt.Fprintln(writer, "Nenhuma farmácia encontrada.")
+		}
+	}
+}
+
+func EndPointTeste() http.HandlerFunc {
 	return func(writer http.ResponseWriter, request *http.Request) {
 		//Acessando o banco de dados 'farma' e listando as collections:
 

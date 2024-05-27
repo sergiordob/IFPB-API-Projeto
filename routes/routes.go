@@ -9,8 +9,8 @@ import(
 func InitializeRoutes() *http.ServeMux {
 	multiplexer := http.NewServeMux()
 
-	multiplexer.HandleFunc("/drugstores/", controllers.EndPoint01())
-	multiplexer.HandleFunc("/teste/", controllers.EndPoint02())
+	multiplexer.HandleFunc("/api/{uf}", controllers.GetDrugstoresByState())
+	multiplexer.HandleFunc("/api/{uf}/{cidade}", controllers.GetDrugstoresByCityAndState())
 	
 	return multiplexer
 }
